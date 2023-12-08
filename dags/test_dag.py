@@ -12,35 +12,43 @@ default_args = {
 
 with DAG(
     default_args=default_args,
-    dag_id='dag_with_postgres_v3',
+    dag_id='dag_with_postgres_v7',
     start_date=datetime(2023,12,3),
     schedule_interval='0 0 * * *'
 ) as dag:
     task1 = PostgresOperator(
+    task_id='create_schema_airflow',
+    postgres_conn_id='postgres_conn',
+    sql="""
+        create schema if not exists airflow;
+    """
+)
+
+    task2 = PostgresOperator(
         task_id = 'create_postgres_table',
         postgres_conn_id='postgres_conn',
         sql="""
-            create table if not exists dag_runs(
+            create table if not exists airflow.test_table(
                 dt date,
                 dag_id character varying,
                 primary key (dt, dag_id)
             )
         """
     )
-    task2 = PostgresOperator(
+    task3 = PostgresOperator(
         task_id='delete_data_from_table',
         postgres_conn_id='postgres_conn',
         sql="""
-            delete from dag_runs where dt = '{{ ds }}' and dag_id ='{{ dag.dag_id }}'
+            delete from test_table where dt = '{{ ds }}' and dag_id ='{{ dag.dag_id }}'
         """
     )
 
-    task3 = PostgresOperator(
+    task4 = PostgresOperator(
         task_id='insert_into_table',
         postgres_conn_id='postgres_conn',
         sql="""
-            insert into dag_runs (dt, dag_id) values ('{{ ds }}', '{{ dag.dag_id }}')
+            insert into test_table (dt, dag_id) values ('{{ ds }}', '{{ dag.dag_id }}')
 
         """
     )
-    task1 >> task2 >> task3
+    task1 >> task2 >> task3 >> task4
